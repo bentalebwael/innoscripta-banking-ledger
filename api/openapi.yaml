@@ -1,0 +1,458 @@
+openapi: 3.0.3
+info:
+  title: Banking Ledger API
+  description: |
+    API for the Banking Ledger service that manages bank accounts and transactions.
+    This service provides endpoints for creating accounts, processing transactions, and retrieving transaction history.
+  version: 1.0.0
+  contact:
+    name: Innoscripta Banking Ledger Team
+servers:
+  - url: /api/v1
+    description: API version 1
+tags:
+  - name: Accounts
+    description: Operations related to bank accounts
+  - name: Transactions
+    description: Operations related to transactions
+paths:
+  /accounts:
+    post:
+      tags:
+        - Accounts
+      summary: Create a new account
+      description: Creates a new bank account with the specified initial balance
+      operationId: createAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Invalid request or duplicate National ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidRequest:
+                  summary: Invalid request format
+                  value:
+                    error:
+                      code: BAD_REQUEST
+                      message: Invalid request body
+                    correlation_id: 123e4567-e89b-12d3-a456-426614174000
+                duplicateNationalID:
+                  summary: Duplicate National ID
+                  value:
+                    error:
+                      code: BAD_REQUEST
+                      message: Account with this National ID already exists
+                    correlation_id: 123e4567-e89b-12d3-a456-426614174000
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /accounts/{id}:
+    get:
+      tags:
+        - Accounts
+      summary: Get account details
+      description: Retrieves details for a specific account
+      operationId: getAccountById
+      parameters:
+        - name: id
+          in: path
+          description: Account ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Account details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Invalid account ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /accounts/{id}/transactions:
+    get:
+      tags:
+        - Accounts
+      summary: Get transaction history for an account
+      description: Retrieves the transaction history for a specific account with pagination
+      operationId: getTransactionsByAccountId
+      parameters:
+        - name: id
+          in: path
+          description: Account ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: per_page
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Transaction history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTransactionResponse'
+        '400':
+          description: Invalid account ID or pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /transactions:
+    post:
+      tags:
+        - Transactions
+      summary: Create a new transaction
+      description: Initiates a new deposit or withdrawal transaction
+      operationId: createTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionRequest'
+      responses:
+        '202':
+          description: Transaction accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionAcceptedResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /transactions/{id}:
+    get:
+      tags:
+        - Transactions
+      summary: Get transaction details
+      description: Retrieves details for a specific transaction
+      operationId: getTransactionById
+      parameters:
+        - name: id
+          in: path
+          description: Transaction ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transaction details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Invalid transaction ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /health:
+    get:
+      summary: Health check
+      description: Checks the health of the API
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+components:
+  schemas:
+    CreateAccountRequest:
+      type: object
+      required:
+        - owner_name
+        - currency
+        - national_id
+      properties:
+        owner_name:
+          type: string
+          description: Name of the account owner
+          example: John Doe
+        national_id:
+          type: string
+          description: National identification number of the account owner
+          example: AB123456789
+        initial_balance:
+          type: integer
+          description: Initial balance in minor units (e.g., cents)
+          minimum: 0
+          default: 0
+          example: 10000
+        currency:
+          type: string
+          description: Three-letter currency code
+          minLength: 3
+          maxLength: 3
+          example: USD
+    AccountResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the account
+          example: 123e4567-e89b-12d3-a456-426614174000
+        owner_name:
+          type: string
+          description: Name of the account owner
+          example: John Doe
+        national_id:
+          type: string
+          description: National identification number of the account owner
+          example: AB123456789
+        balance:
+          type: integer
+          description: Current balance in minor units (e.g., cents)
+          example: 10000
+        currency:
+          type: string
+          description: Three-letter currency code
+          example: USD
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: 2025-05-17T19:35:56Z
+        updated_at:
+          type: string
+          format: date-time
+          description: Account last update timestamp
+          example: 2025-05-17T19:35:56Z
+    CreateTransactionRequest:
+      type: object
+      required:
+        - account_id
+        - type
+        - amount
+        - currency
+      properties:
+        account_id:
+          type: string
+          format: uuid
+          description: ID of the account for the transaction
+          example: 123e4567-e89b-12d3-a456-426614174000
+        type:
+          type: string
+          description: Type of transaction
+          enum:
+            - DEPOSIT
+            - WITHDRAWAL
+          example: DEPOSIT
+        amount:
+          type: integer
+          description: Transaction amount in minor units (e.g., cents)
+          minimum: 1
+          example: 5000
+        currency:
+          type: string
+          description: Three-letter currency code
+          minLength: 3
+          maxLength: 3
+          example: USD
+        idempotency_key:
+          type: string
+          description: Optional client-provided idempotency key to prevent duplicate transactions
+          example: client-request-123
+    TransactionResponse:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the transaction
+          example: 123e4567-e89b-12d3-a456-426614174000
+        account_id:
+          type: string
+          format: uuid
+          description: ID of the account for the transaction
+          example: 123e4567-e89b-12d3-a456-426614174000
+        type:
+          type: string
+          description: Type of transaction
+          enum:
+            - DEPOSIT
+            - WITHDRAWAL
+          example: DEPOSIT
+        amount:
+          type: integer
+          description: Transaction amount in minor units (e.g., cents)
+          example: 5000
+        currency:
+          type: string
+          description: Three-letter currency code
+          example: USD
+        status:
+          type: string
+          description: Current status of the transaction
+          enum:
+            - PENDING
+            - PROCESSING
+            - COMPLETED
+            - FAILED
+          example: COMPLETED
+        failure_reason:
+          type: string
+          description: Reason for failure if status is FAILED
+          example: Insufficient funds
+        created_at:
+          type: string
+          format: date-time
+          description: Transaction creation timestamp
+          example: 2025-05-17T19:35:56Z
+        processed_at:
+          type: string
+          format: date-time
+          description: Transaction processing completion timestamp
+          example: 2025-05-17T19:36:00Z
+    TransactionAcceptedResponse:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the transaction
+          example: 123e4567-e89b-12d3-a456-426614174000
+        status:
+          type: string
+          description: Initial status of the transaction
+          enum:
+            - PENDING
+          example: PENDING
+    PaginatedTransactionResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionResponse'
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+              description: Current page number
+              example: 1
+            per_page:
+              type: integer
+              description: Number of items per page
+              example: 10
+            total_pages:
+              type: integer
+              description: Total number of pages
+              example: 5
+            total_items:
+              type: integer
+              description: Total number of items
+              example: 42
+        correlation_id:
+          type: string
+          description: Correlation ID for request tracing
+          example: 123e4567-e89b-12d3-a456-426614174000
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+              example: BAD_REQUEST
+            message:
+              type: string
+              description: Error message
+              example: Invalid account ID
+        correlation_id:
+          type: string
+          description: Correlation ID for request tracing
+          example: 123e4567-e89b-12d3-a456-426614174000
