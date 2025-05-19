@@ -45,24 +45,23 @@ A component within the Transaction Processor that reads from the PostgreSQL outb
 
 ```mermaid
 graph TD
+    %% Main application flow
     User[User/Client Application] -->|HTTP API Calls| APIGateway[API Gateway Service]
-
-    APIGateway -->|Create Account, Read Account Details| PostgreSQL[(PostgreSQL Database)]
-    APIGateway -->|Read Transaction History/Status| MongoDB[(MongoDB Database)]
     APIGateway -->|Transaction Requests| Kafka[Kafka Topic: transaction_requests]
-
     Kafka -->|Consumes Messages| TransactionProcessor[Transaction Processor Service]
-
-    TransactionProcessor -->|Account Balance Updates & Outbox Creation| PostgreSQL
-    TransactionProcessor -->|Idempotency Checks, Read Ledger| MongoDB
-
-    subgraph "Outbox Polling Mechanism"
-        direction LR
-        OutboxPoller[Outbox Poller] -->|Reads Pending Outbox Entries| PostgreSQL
-        OutboxPoller -->|Writes Ledger Entry to MongoDB| MongoDB
-    end
-
-    TransactionProcessor --> OutboxPoller
+    
+    %% Database connections
+    APIGateway -->|Create Account, Read Account Details| PostgreSQL[(PostgreSQL Database)]
+    APIGateway -->|Read Transaction History| MongoDB[(MongoDB Database)]
+    
+    %% Transaction Processor connections
+    TransactionProcessor -->|Balance Updates & Outbox Creation| PostgreSQL
+    TransactionProcessor -->|Idempotency Checks| MongoDB
+    TransactionProcessor --> OutboxPoller[Outbox Poller]
+    
+    %% Outbox Poller connections - centralized
+    OutboxPoller -->|Reads Pending Entries| PostgreSQL
+    OutboxPoller -->|Writes Ledger Entry| MongoDB
 ```
 
 ### Key Patterns Implemented
